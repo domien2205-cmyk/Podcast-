@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Podcast: Grok Image → AGI Fisica di Optimus Gen 3</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root { --accent: #c84b11; }
+  body { margin:0; font-family: Georgia, serif; background:#0c0906; color:#e8d5b7; min-height:100vh; }
+  .header { background:linear-gradient(180deg,#1e1006,#130902); padding:18px 24px; display:flex; align-items:center; gap:16px; position:sticky; top:0; z-index:100; border-bottom:1px solid #2a1808; }
+  .mic { width:40px; height:40px; border-radius:50%; background:radial-gradient(#d05010,#7a1e00); display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .wave { display:flex; align-items:center; gap:3px; }
+  .dialogue { margin:14px 0; padding-left:18px; border-left:4px solid var(--accent); }
+  .speaker { font-weight:bold; color:#ffaa77; }
+  button { cursor:pointer; transition:all 0.2s; }
+  .btn { background:var(--accent); color:white; border:none; border-radius:8px; padding:14px 24px; font-weight:bold; font-size:15px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="mic">🎤</div>
+  <div>
+    <div style="font-size:18px; font-weight:bold; letter-spacing:2px;">PODCAST STUDIO</div>
+    <div style="font-size:10px; color:var(--accent); letter-spacing:4px;">Grok Image • AGI Fisica • Optimus Gen 3</div>
+  </div>
+  <div id="liveWave" class="wave" style="margin-left:auto; opacity:0.3;"></div>
+</div>
+
+<div style="max-width:820px; margin:0 auto; padding:30px 20px;">
+
+  <div id="playerTab">
+    <div style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;">
+      <button onclick="togglePlay()" id="playBtn" class="btn">▶ RIPRODUCI IL PODCAST</button>
+      <button onclick="pausePodcast()" class="btn" style="background:#3a2010;">⏸️ Pausa</button>
+      <button onclick="stopPodcast()" class="btn" style="background:#3a2010;">⏹️ Stop</button>
+      <button onclick="restartPodcast()" class="btn" style="background:#3a2010;">↺ Riavvia</button>
+    </div>
+
+    <div id="scriptContainer" style="max-height:65vh; overflow-y:auto; background:#17100a; padding:24px; border-radius:12px; line-height:1.75; font-size:15px;"></div>
+
+    <div style="margin-top:24px; text-align:center; opacity:0.7; font-size:13px;">
+      Episodio generato il 3 aprile 2026 • Usa le voci del tuo browser (italiano consigliato)
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== CORE LOGIC ====================
+let lines = [];
+let currentLine = -1;
+let isPlaying = false;
+let isPaused = false;
+const SS = window.speechSynthesis;
+
+const mockScript = `## Introduzione
+[Musica di sottofondo futuristica, suoni di robot che si muovono fluidi]
+**Host**: Benvenuti in questo episodio speciale di Podcast Studio. Oggi parliamo di una convergenza che potrebbe cambiare tutto: Grok Image come strumento di training per Optimus Gen 3, il robot umanoide di Tesla, verso una vera AGI fisica incarnata.
+**Esperto AI**: È l’idea che l’intelligenza non nasca solo nel cloud, ma nel corpo.
+
+## Lo stato di Optimus Gen 3 oggi
+**Host**: Aprile 2026. Optimus Gen 3 sta già camminando nei laboratori Tesla, ma la reveal ufficiale è stata posticipata per le ultime rifiniture.
+**Esperto AI**: Esatto. Il robot ha mani ultra-destre, visione a 8 telecamere, computer end-to-end e sta imparando con Sim-to-Real. Ma per raggiungere l’AGI fisica serve qualcosa di più.
+
+## Grok Image entra in scena
+**Host**: Grok Image genera immagini fotorealistiche all’infinito. Come diventa training data?
+**Esperto AI**: [Pausa pensierosa] Creando dataset sintetici illimitati. Scenari impossibili da filmare: Optimus che afferra oggetti in luce scarsa, che cammina su terreni irregolari, che interagisce in fabbriche caotiche. Dati che Tesla non potrebbe mai raccogliere solo con telecamere reali.
+
+## Il loop di embodied AGI
+**Host**: Quindi Grok genera immagini → Optimus impara in simulazione → trasferisce nel mondo fisico.
+**Esperto AI**: Precisamente. È il ponte tra la creatività digitale di xAI e il corpo di Tesla. Imitation learning potenziato da immagini sintetiche. Elon ha detto che Optimus potrebbe diventare il primo sistema fisico a incarnare l’AGI.
+
+## Sfide e futuro
+**Host**: Quali sono gli ostacoli?
+**Esperto AI**: La scala di dati, la sicurezza, il trasferimento Sim-to-Real perfetto. Eppure… stiamo assistendo alla nascita dell’intelligenza incarnata.
+
+## Conclusione
+**Host**: Grazie per aver ascoltato fino alla fine. Il futuro non è solo robot che lavorano: è robot che imparano a pensare con il corpo.
+**Esperto AI**: Alla prossima. E ricordate: l’universo ci sta osservando.
+[Musica di chiusura epica, che sfuma lentamente]`;
+
+function parseAndRender(text) {
+  lines = [];
+  const rawLines = text.split("\n").filter(l => l.trim());
+  rawLines.forEach(raw => {
+    const speakerMatch = raw.match(/^\*\*(.+?)\*\*\s*[:\-]\s*(.+)/);
+    const directionMatch = raw.match(/^\[(.+?)\]/);
+    if (speakerMatch) {
+      lines.push({ type: "dialogue", speaker: speakerMatch[1].trim(), text: speakerMatch[2].trim() });
+    } else if (directionMatch) {
+      lines.push({ type: "direction", text: directionMatch[1] });
+    } else if (raw.startsWith("##")) {
+      lines.push({ type: "section", text: raw.replace("##", "").trim() });
+    } else {
+      lines.push({ type: "narration", text: raw.trim() });
+    }
+  });
+  renderScript();
+}
+
+function renderScript() {
+  const container = document.getElementById("scriptContainer");
+  let html = "";
+  lines.forEach((line, i) => {
+    if (line.type === "section") {
+      html += `<h3 style="color:#ffaa77; margin:28px 0 12px; border-bottom:1px solid #3a2010; padding-bottom:8px;">${line.text}</h3>`;
+    } else if (line.type === "dialogue") {
+      html += `<div class="dialogue" id="line-\( {i}"><span class="speaker"> \){line.speaker}:</span> ${line.text}</div>`;
+    } else {
+      html += `<div style="font-style:italic; color:#aaa; margin:16px 0;" id="line-\( {i}">[ \){line.text}]</div>`;
+    }
+  });
+  container.innerHTML = html;
+}
+
+async function togglePlay() {
+  if (isPlaying) { stopPodcast(); return; }
+  isPlaying = true;
+  document.getElementById("playBtn").textContent = "⏹️ Stop";
+  for (let i = 0; i < lines.length; i++) {
+    if (!isPlaying) break;
+    currentLine = i;
+    highlightLine(i);
+    const line = lines[i];
+    if (line.type === "dialogue") {
+      await speak(line.text, line.speaker);
+    } else if (line.type === "narration" || line.type === "direction") {
+      await speak(line.text, null, true);
+    }
+  }
+  stopPodcast();
+}
+
+function highlightLine(idx) {
+  document.querySelectorAll("#scriptContainer > *").forEach(el => el.style.background = "");
+  const el = document.getElementById(`line-${idx}`);
+  if (el) el.style.background = "#2a1808";
+}
+
+async function speak(text, speaker = null) {
+  return new Promise(resolve => {
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'it-IT';                    // Voce italiana
+    if (speaker) {
+      utt.pitch = speaker.includes("Esperto") ? 1.12 : 0.96;
+      utt.rate = speaker.includes("Esperto") ? 1.03 : 0.97;
+    } else {
+      utt.rate = 0.92;
+      utt.pitch = 0.9;
+    }
+    utt.onend = () => resolve();
+    utt.onerror = () => resolve();
+    SS.speak(utt);
+  });
+}
+
+function pausePodcast() { SS.paused ? SS.resume() : SS.pause(); }
+function stopPodcast() {
+  SS.cancel();
+  isPlaying = false;
+  document.getElementById("playBtn").textContent = "▶ RIPRODUCI IL PODCAST";
+}
+function restartPodcast() {
+  stopPodcast();
+  setTimeout(() => togglePlay(), 120);
+}
+
+// AUTO-AVVIAMENTO AL CARICAMENTO
+document.addEventListener('DOMContentLoaded', () => {
+  parseAndRender(mockScript);
+});
+</script>
+</body>
+</html>
